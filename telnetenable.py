@@ -22,8 +22,8 @@ import sys
 import socket
 import array
 from optparse import OptionParser
-from Crypto.Cipher import Blowfish
-from Crypto.Hash import MD5
+from Cryptodome.Cipher import Blowfish
+from Cryptodome.Hash import MD5
 
 TELNET_PORT = 23
 
@@ -41,12 +41,12 @@ def ByteSwap(data):
     a = array.array('L')
   
   if(a.itemsize != 4):
-    print "Need a type that is 4 bytes on your platform so we can fix the data!"
+    print("Need a type that is 4 bytes on your platform so we can fix the data!")
     exit(1)
 
-  a.fromstring(data)
+  a.frombytes(data)
   a.byteswap()
-  return a.tostring()
+  return a.tobytes()
 
 def GeneratePayload(mac, username, password=""):
   # eventually reformat mac
@@ -62,12 +62,12 @@ def GeneratePayload(mac, username, password=""):
   assert(len(password) <= 0x21)
   just_password = password.ljust(0x21, "\x00")
 
-  cleartext = (just_mac + just_username + just_password).ljust(0x70, '\x00')
+  cleartext = (just_mac + just_username + just_password).ljust(0x70, '\x00').encode('utf-8')
   md5_key = MD5.new(cleartext).digest()
 
-  payload = ByteSwap((md5_key + cleartext).ljust(0x80, "\x00"))
+  payload = ByteSwap((md5_key + cleartext).ljust(0x80, "\x00".encode('utf-8')))
   
-  secret_key = "AMBIT_TELNET_ENABLE+" + password
+  secret_key = ("AMBIT_TELNET_ENABLE+" + password).encode('utf-8')
 
   return ByteSwap(Blowfish.new(secret_key, 1).encrypt(payload))
 
@@ -77,29 +77,29 @@ def SendPayload(ip, payload):
     af, socktype, proto, canonname, sa = res
     try:
       s = socket.socket(af, socktype, proto)
-    except socket.error, msg:
+    except socket.error as msg:
       s = None
       continue
 
     try:
       s.connect(sa)
-    except socket.error, msg:
+    except socket.error as msg:
       s.close()
       s= None
       continue
     break
 
   if s is None:
-    print "Could not connect to '%s:%d'" % (ip, TELNET_PORT)
+    print(f"Could not connect to '{ip}:{TELNET_PORT}'")
   else:
     s.send(payload)
     s.close()
-    print "Sent telnet enable payload to '%s:%d'" % (ip, TELNET_PORT)
+    print(f"Sent telnet enable payload to '{ip}:{TELNET_PORT}'")
   
 def main():
   args = sys.argv[1:]
   if len(args) < 3 or len(args) > 4:
-    print "usage: python telnetenable.py <ip> <mac> <username> [<password>]"
+    print("usage: python telnetenable.py <ip> <mac> <username> [<password>]")
 
   ip = args[0]
   mac = args[1]
